@@ -1,0 +1,9 @@
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: gitlab-token
+  namespace: demo
+type: Opaque
+data:
+  token: ''

@@ -1,0 +1,18 @@
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  annotations:
+    storageclass.kubernetes.io/is-default-class: 'true'
+  name: ebs-gp3
+allowVolumeExpansion: true
+parameters:
+  allowAutoIOPSPerGBIncrease: 'true'
+  fsType: ext4
+  iopsPerGB: '500'
+  type: gp3
+  tagSpecification_1: environment=demo
+  tagSpecification_2: managed-by=eks
+provisioner: ebs.csi.aws.com
+reclaimPolicy: Delete
+volumeBindingMode: WaitForFirstConsumer

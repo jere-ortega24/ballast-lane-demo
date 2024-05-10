@@ -1,0 +1,103 @@
+---
+replicaCount: 3
+
+image:
+  repository: ''
+  pullPolicy: Always
+  tag: ''
+
+args: []
+
+extraImagePullSecrets: []
+#   - secret-name
+
+strategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxSurge: 1
+    maxUnavailable: 0
+
+nameOverride: ''
+fullnameOverride: ''
+
+podAnnotations: {}
+podLabels: {}
+
+containerPort: 8080
+startupProbe:
+  path: /ping
+  failureThreshold: 5
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 1
+livenessProbe:
+  path: /ping
+  failureThreshold: 5
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 1
+readinessProbe:
+  path: /ping
+  failureThreshold: 5
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 1
+
+envFrom:
+  - secretRef:
+      name: demo-api-db-creds
+#   - configMapRef:
+#       name: config-map
+extraEnvs: []
+#  - name: MY_ENVIRONMENT_VAR
+#    value: the_value_goes_here
+
+serviceAccount:
+  create: true
+  name: ''
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::652725896823:role/demo-api-demo-pgvc
+
+service:
+  enabled: true
+  type: ClusterIP
+  port: 80
+  annotations: {}
+
+ingress:
+  classname: ingress-nginx
+  host: demo-api.ortega.tech
+  paths:
+    - path: /
+      pathType: Prefix
+
+resources:
+  limits:
+    cpu: 100m
+    memory: 128Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+pdb:
+  maxUnavailable: 1
+#   minAvailable: 1
+
+affinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: environment
+              operator: In
+              values:
+                - demo
+
+config:
+  data:
+    API_PORT: '8080'
+    BUCKET_NAME: public.ortega.tech
+    BUCKET_PREFIX: demo/images
+    DB_DATABASE_NAME: demodb
+    DB_HOSTNAME: postgresql.demo.svc.cluster.local
+    DB_USERNAME: demouser

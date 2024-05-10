@@ -1,0 +1,97 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "demo.fullname" . }}
+  labels:
+    {{- include "demo.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+{{- if .Values.progressDeadlineSeconds }}
+  progressDeadlineSeconds: {{ .Values.progressDeadlineSeconds }}
+{{- end }}
+{{- if .Values.strategy }}
+  strategy:
+    {{- toYaml .Values.strategy | nindent 4 }}
+{{- end }}
+  selector:
+    matchLabels:
+      {{- include "demo.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yml") . | sha256sum }}
+{{- if .Values.podAnnotations }}
+        {{- toYaml .Values.podAnnotations | nindent 8 }}
+{{- end }}
+      labels:
+        {{- include "demo.selectorLabels" . | nindent 8 }}
+{{- if .Values.podLabels }}
+        {{- toYaml .Values.podLabels | nindent 8 }}
+{{- end }}
+    spec:
+      serviceAccountName: {{ include "demo.serviceAccountName" . }}
+      imagePullSecrets:
+{{- if .Values.extraImagePullSecrets }}
+        {{- toYaml .Values.extraImagePullSecrets | nindent 8 }}
+{{- end}}
+      containers:
+        - name: {{ .Release.Name }}
+{{- if .Values.args }}
+          args:
+            {{- toYaml .Values.args | nindent 12}}
+{{- end }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.overrideTag | default .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.containerPort }}
+              protocol: TCP
+{{- if .Values.startupProbe }}
+          startupProbe:
+            httpGet:
+              path: {{ .Values.startupProbe.path }}
+              port: http
+            failureThreshold: {{ .Values.startupProbe.failureThreshold }}
+            initialDelaySeconds: {{ .Values.startupProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.startupProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.startupProbe.timeoutSeconds }}
+{{- end}}
+{{- if .Values.livenessProbe }}
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.livenessProbe.path }}
+              port: http
+            failureThreshold: {{ .Values.livenessProbe.failureThreshold }}
+            initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.livenessProbe.timeoutSeconds }}
+{{- end}}
+{{- if .Values.readinessProbe }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.readinessProbe.path }}
+              port: http
+            failureThreshold: {{ .Values.readinessProbe.failureThreshold }}
+            initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.readinessProbe.timeoutSeconds }}
+{{- end}}
+{{- if .Values.resources }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+{{- end}}
+{{- if .Values.extraEnvs }}
+          env:
+            {{- toYaml .Values.extraEnvs | nindent 12 }}
+{{- end}}
+          envFrom:
+            - configMapRef:
+                name: {{ .Release.Name }}
+{{- if .Values.envFrom }}
+            {{- toYaml .Values.envFrom | nindent 12 }}
+{{- end}}
+{{- if .Values.affinity }}
+      affinity:
+        {{- toYaml .Values.affinity | nindent 8 }}
+{{- end }}

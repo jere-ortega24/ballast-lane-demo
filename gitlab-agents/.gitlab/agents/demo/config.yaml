@@ -1,0 +1,5 @@
+---
+ci_access:
+  projects:
+    - id: jereortega24/ballast-lane-demo-infra
+    - id: jereortega24/ballast-lane-demo-api

@@ -1,0 +1,73 @@
+---
+stages:
+  - Test
+  - Build
+  - Deploy
+
+variables:
+  DOCKER_REPOSITORY: 652725896823.dkr.ecr.us-west-2.amazonaws.com/demo-api
+  DOCKER_IN_DOCKER_IMAGE: docker:26.1.1-dind-alpine3.19
+  KUBE_CONTEXT: jereortega24/gitlab-agents:demo
+
+default:
+  image: jereortega24/demo-deployer:3
+  before_script:
+    - BUILD_VERSION=${CI_COMMIT_SHA:0:8}
+
+Test Go:
+  stage: Test
+  image: golang:1.22.3
+  script:
+    - make test
+  rules:
+    - if: $CI_MERGE_REQUEST_ID
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+Lint Chart:
+  stage: Test
+  script:
+    - cd helm/chart/
+    - helm lint
+  rules:
+    - if: $CI_MERGE_REQUEST_ID
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+Build:
+  stage: Build
+  variables:
+    DOCKER_HOST: tcp://dind:2375
+    DOCKER_TLS_CERTDIR: ""
+  services:
+    - name: $DOCKER_IN_DOCKER_IMAGE
+      alias: dind
+      variables:
+        DOCKER_DRIVER: overlay2
+  script:
+    - docker build -t $DOCKER_REPOSITORY:$BUILD_VERSION -f ./docker/Dockerfile .
+  rules:
+    - if: $CI_MERGE_REQUEST_ID
+
+Build Docker:
+  stage: Build
+  variables:
+    DOCKER_HOST: tcp://dind:2375
+    DOCKER_TLS_CERTDIR: ""
+  services:
+    - name: $DOCKER_IN_DOCKER_IMAGE
+      alias: dind
+      variables:
+        DOCKER_DRIVER: overlay2
+  script:
+    - docker build -t $DOCKER_REPOSITORY:$BUILD_VERSION -f ./docker/Dockerfile .
+    - docker push $DOCKER_REPOSITORY:$BUILD_VERSION
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+Deploy Helm:
+  stage: Deploy
+  script:
+    - kubectl config use-context "$KUBE_CONTEXT"
+    - helm upgrade --install --set-string image.tag=$BUILD_VERSION --set-string image.repository=$DOCKER_REPOSITORY -n demo demo-api ./helm/chart
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: manual

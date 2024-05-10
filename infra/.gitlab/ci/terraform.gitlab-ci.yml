@@ -1,0 +1,59 @@
+---
+variables:
+  TF_ROOT: ''
+  TF_IN_AUTOMATION: 1
+  TF_INPUT: 0
+  EXTRA_VAR_FILE: none
+
+default:
+  image: jereortega24/demo-deployer:3
+  cache:
+    key:
+      files:
+        - $TF_ROOT/.terraform.lock.hcl
+      prefix: $TF_ROOT
+    paths:
+      - $TF_ROOT/.terraform
+
+  before_script:
+    - echo $TF_ROOT
+    - cd $TF_ROOT
+
+stages:
+  - init
+  - plan
+  - apply
+
+init:
+  stage: init
+  script:
+    - terraform init
+    - terraform validate
+    - terraform fmt --check
+  rules:
+    - when: always
+
+plan:
+  stage: plan
+  script:
+    - if [ "${EXTRA_VAR_FILE}" != 'none' ]; then export TF_CLI_ARGS_plan="--var-file=${!EXTRA_VAR_FILE}"; fi
+    - terraform plan --out=plan.tfplan
+    - terraform show --json plan.tfplan | jq -r '([.resource_changes[]?.change.actions?]|flatten)|{"create":(map(select(.=="create"))|length),"update":(map(select(.=="update"))|length),"delete":(map(select(.=="delete"))|length)}' > tfplan.json
+  artifacts:
+    expire_in: 1 week
+    name: plan
+    reports:
+      terraform: $TF_ROOT/tfplan.json
+    paths:
+      - $TF_ROOT/plan.tfplan
+  rules:
+    - if: $CI_MERGE_REQUEST_ID
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+apply:
+  stage: apply
+  script:
+    - terraform apply --auto-approve plan.tfplan
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: manual
